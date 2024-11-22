@@ -145,48 +145,77 @@ def create_game_tree(board, player, depth, parent=None, role="max"):
         children.append(child)
     return node
 
-def draw_game_tree(tree, x, y, offset=300):
-    node_positions = []
+def evaluate_board(board, player):
+    piece_values = {'p': -1, 'b': -3, 'n': -3, 'r': -5, 'q': -9, 'k': -100,
+                    'P': 1, 'B': 3, 'N': 3, 'R': 5, 'Q': 9, 'K': 100}
+    positional_values = {
+        'p': [[0, 0, 0], [1, 2, 1], [0, 1, 0]],
+        'N': [[2, 3, 2], [3, 4, 3], [2, 3, 2]],
+        'n': [[2, 3, 2], [3, 4, 3], [2, 3, 2]],
+        'R': [[1, 2, 1], [2, 3, 2], [1, 2, 1]],
+        'b': [[2, 3, 2], [3, 4, 3], [2, 3, 2]],
+    }
 
-    draw_board(x, y, tree["board"])
-    font = pygame.font.Font(None, 24)
-    role_text = font.render(tree["role"], True, BLACK)
-    screen.blit(role_text, (x, y - 20))
+    evaluation = 0
+    mobility_bonus = 0
 
-    node_positions.append((x, y, tree))
+    for row in range(len(board)):
+        for col in range(len(board[row])):
+            cell = board[row][col]
+            if cell in piece_values:
+                evaluation += piece_values[cell]
+            if cell in positional_values:
+                evaluation += positional_values[cell][row][col]
 
-    if tree["children"]:
-        child_x_start = x - (len(tree["children"]) - 1) * offset // 2
-        child_y = y + 200
-        for child in tree["children"]:
+    possible_moves = get_possible_moves(board, player)
+    mobility_bonus += len(possible_moves) * 0.1  
+    evaluation += mobility_bonus
 
-            pygame.draw.line(
-                screen, BLUE,
-                (x + BOARD_SIZE * SQUARE_SIZE // 2, y + BOARD_SIZE * SQUARE_SIZE),
-                (child_x_start + BOARD_SIZE * SQUARE_SIZE // 2, child_y),
-                2
-            )
+    return evaluation
 
-            node_positions.extend(draw_game_tree(child, child_x_start, child_y, offset // 1.5))
-            child_x_start += offset
+def minimax(node, depth, alpha, beta, maximizing_player):
+    if depth == 0 or node["role"] == "terminal":
+        node["value"] = evaluate_board(node["board"], "white" if maximizing_player else "black")
+        node["is_pruned"] = False  
+        return node["value"]
 
-    return node_positions
-
-def draw_back_button():
-    button_rect = pygame.Rect(WIDTH - 150, 50, 100, 50)
-    pygame.draw.rect(screen, GRAY, button_rect)
-    font = pygame.font.Font(None, 36)
-    text = font.render("Geri", True, BLACK)
-    screen.blit(text, (WIDTH - 140, 60))
-    return button_rect
+    if maximizing_player:
+        max_eval = float('-inf')
+        for child in node["children"]:
+            eval = minimax(child, depth - 1, alpha, beta, False)
+            max_eval = max(max_eval, eval)
+            alpha = max(alpha, eval)
+            if beta <= alpha:
+                child["is_pruned"] = True  
+                break
+            else:
+                child["is_pruned"] = False  
+        node["value"] = max_eval
+        return max_eval
+    else:
+        min_eval = float('inf')
+        for child in node["children"]:
+            eval = minimax(child, depth - 1, alpha, beta, True)
+            min_eval = min(min_eval, eval)
+            beta = min(beta, eval)
+            if beta <= alpha:
+                child["is_pruned"] = True  
+                break
+            else:
+                child["is_pruned"] = False  
+        node["value"] = min_eval
+        return min_eval
 
 def draw_selected_tree(tree, x, y, offset=300):
     node_positions = []
 
     draw_board(x, y, tree["board"])
     font = pygame.font.Font(None, 24)
+
     role_text = font.render(tree["role"], True, BLACK)
-    screen.blit(role_text, (x, y - 20))
+    value_text = font.render(f"Value: {tree.get('value', '')}", True, BLACK)
+    screen.blit(role_text, (x, y - 40))  
+    screen.blit(value_text, (x, y - 20))  
     node_positions.append((x, y, tree))
 
     if tree["children"]:
@@ -203,15 +232,31 @@ def draw_selected_tree(tree, x, y, offset=300):
 
             draw_board(child_x_start, child_y, child["board"])
             child_role_text = font.render(child["role"], True, BLACK)
-            screen.blit(child_role_text, (child_x_start, child_y - 20))
+            child_value_text = font.render(f"Value: {child.get('value', '')}", True, BLACK)
+
+            if child.get("is_pruned"):
+                prune_text = font.render("α >= β : true /other branches were pruned", True, BLACK)
+                screen.blit(prune_text, (child_x_start, child_y + BOARD_SIZE * SQUARE_SIZE + 10))
+
+            screen.blit(child_role_text, (child_x_start, child_y - 40))
+            screen.blit(child_value_text, (child_x_start, child_y - 20))
             node_positions.append((child_x_start, child_y, child))
             child_x_start += offset
 
     return node_positions
 
+def draw_back_button():
+    button_rect = pygame.Rect(WIDTH - 150, 50, 100, 50)
+    pygame.draw.rect(screen, GRAY, button_rect)
+    font = pygame.font.Font(None, 36)
+    text = font.render("Geri", True, BLACK)
+    screen.blit(text, (WIDTH - 140, 60))
+    return button_rect
+
 def game_loop():
     initial_board = create_initial_board()
     game_tree = create_game_tree(initial_board, "white", 4, role="max")
+    minimax(game_tree, depth=4, alpha=float('-inf'), beta=float('inf'), maximizing_player=True)
     selected_tree = game_tree
 
     while True:
@@ -220,17 +265,15 @@ def game_loop():
                 pygame.quit()
                 sys.exit()
             elif event.type == pygame.MOUSEBUTTONDOWN:
-                mouse_x, mouse_y = pygame.mouse.get_pos()
-                back_button = draw_back_button()
-
-                if back_button.collidepoint(mouse_x, mouse_y) and selected_tree["parent"] is not None:
-                    selected_tree = selected_tree["parent"]
-
-                node_positions = draw_selected_tree(selected_tree, WIDTH // 2 - SQUARE_SIZE * BOARD_SIZE // 2, 50)
-                for x, y, tree in node_positions:
-
-                    if x <= mouse_x <= x + BOARD_SIZE * SQUARE_SIZE and y <= mouse_y <= y + BOARD_SIZE * SQUARE_SIZE:
-                        selected_tree = tree
+                if event.button == 1:
+                    mouse_x, mouse_y = pygame.mouse.get_pos()
+                    back_button = draw_back_button()
+                    if back_button.collidepoint(mouse_x, mouse_y) and selected_tree["parent"] is not None:
+                        selected_tree = selected_tree["parent"]
+                    node_positions = draw_selected_tree(selected_tree, WIDTH // 2 - SQUARE_SIZE * BOARD_SIZE // 2, 50)
+                    for x, y, tree in node_positions:
+                        if x <= mouse_x <= x + BOARD_SIZE * SQUARE_SIZE and y <= mouse_y <= y + BOARD_SIZE * SQUARE_SIZE:
+                            selected_tree = tree
 
         screen.fill(WHITE)
         draw_selected_tree(selected_tree, WIDTH // 2 - SQUARE_SIZE * BOARD_SIZE // 2, 50)
