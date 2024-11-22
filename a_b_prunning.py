@@ -150,6 +150,15 @@ def create_game_tree(board, player, depth, parent=None, role="max"):
         children.append(child)
     return node
 
+"""
+Formula
+Evaluation=Material Value + Positional Value + Mobility Bonus + Threat Bonus
+The material value is found by adding the positive value of the white pieces on the board (each piece has its own value) and the negative value of the black pieces.
+Positional value is the value given to a position that suggests each piece has a strategically advantage.
+Mobility bonus is a bonus point for each player that shows their ability to move. For each chance to move, an additional 0.1 point is added.
+Threat Bonus:
++0.5 bonus points are added for each threatened opposing piece, 0.25 points are added for each piece under protection, and if there is a threat from the opposing side, -0.5 penalty points are given for each unprotected piece under threat.
+"""
 def evaluate_board(board, player):
     piece_values = {'p': -1, 'b': -3, 'n': -3, 'r': -5, 'q': -9, 'k': -100,
                     'P': 1, 'B': 3, 'N': 3, 'R': 5, 'Q': 9, 'K': 100}
@@ -163,6 +172,7 @@ def evaluate_board(board, player):
 
     evaluation = 0
     mobility_bonus = 0
+    threat_bonus = 0
 
     for row in range(len(board)):
         for col in range(len(board[row])):
@@ -172,11 +182,39 @@ def evaluate_board(board, player):
             if cell in positional_values:
                 evaluation += positional_values[cell][row][col]
 
-    possible_moves = get_possible_moves(board, player)
-    mobility_bonus += len(possible_moves) * 0.1  
-    evaluation += mobility_bonus
+            # Tehdit analizi
+            if cell.isupper():  # Beyaz taşlar
+                enemy_pieces = ['p', 'b', 'n', 'r']
+                threat_bonus += check_threats(board, row, col, enemy_pieces, is_enemy=True)
+                threat_bonus += check_threats(board, row, col, enemy_pieces, is_enemy=False)
+            elif cell.islower():  # Siyah taşlar
+                enemy_pieces = ['P', 'B', 'N', 'R']
+                threat_bonus += check_threats(board, row, col, enemy_pieces, is_enemy=True)
+                threat_bonus += check_threats(board, row, col, enemy_pieces, is_enemy=False)
 
+    possible_moves = get_possible_moves(board, player)
+    mobility_bonus += len(possible_moves) * 0.1  # Hareket kabiliyeti bonusu
+
+    evaluation += mobility_bonus + threat_bonus
     return evaluation
+
+
+def check_threats(board, row, col, enemy_pieces, is_enemy):
+    threat_score = 0
+
+    directions = [(-1, 0), (1, 0), (0, -1), (0, 1), (-1, -1), (-1, 1), (1, -1), (1, 1)]  # Tüm yönler
+
+    for dr, dc in directions:
+        new_row, new_col = row + dr, col + dc
+        if 0 <= new_row < len(board) and 0 <= new_col < len(board[0]):
+            target_piece = board[new_row][new_col]
+            if is_enemy and target_piece in enemy_pieces:  # Rakip taş tehdit ediliyorsa
+                threat_score += 0.5
+            elif not is_enemy and target_piece.isupper() if board[row][col].islower() else target_piece.islower():
+                # Kendi taş korunuyorsa
+                threat_score += 0.25
+
+    return threat_score
 
 def minimax(node, depth, alpha, beta, maximizing_player):
     if depth == 0 or node["role"] == "terminal":
