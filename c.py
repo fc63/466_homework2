@@ -1,6 +1,11 @@
-import pygame
+import subprocess
 import sys
 import copy
+try:
+    import pygame
+except ImportError:
+    subprocess.check_call([sys.executable, "-m", "pip", "install", "pygame"])
+    import pygame
 
 pygame.init()
 WIDTH, HEIGHT = 1800, 600
