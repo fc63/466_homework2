@@ -182,36 +182,34 @@ def evaluate_board(board, player):
             if cell in positional_values:
                 evaluation += positional_values[cell][row][col]
 
-            # Tehdit analizi
-            if cell.isupper():  # Beyaz taşlar
+            if cell.isupper():  
                 enemy_pieces = ['p', 'b', 'n', 'r']
                 threat_bonus += check_threats(board, row, col, enemy_pieces, is_enemy=True)
                 threat_bonus += check_threats(board, row, col, enemy_pieces, is_enemy=False)
-            elif cell.islower():  # Siyah taşlar
+            elif cell.islower():  
                 enemy_pieces = ['P', 'B', 'N', 'R']
                 threat_bonus += check_threats(board, row, col, enemy_pieces, is_enemy=True)
                 threat_bonus += check_threats(board, row, col, enemy_pieces, is_enemy=False)
 
     possible_moves = get_possible_moves(board, player)
-    mobility_bonus += len(possible_moves) * 0.1  # Hareket kabiliyeti bonusu
+    mobility_bonus += len(possible_moves) * 0.1  
 
     evaluation += mobility_bonus + threat_bonus
     return evaluation
 
-
 def check_threats(board, row, col, enemy_pieces, is_enemy):
     threat_score = 0
 
-    directions = [(-1, 0), (1, 0), (0, -1), (0, 1), (-1, -1), (-1, 1), (1, -1), (1, 1)]  # Tüm yönler
+    directions = [(-1, 0), (1, 0), (0, -1), (0, 1), (-1, -1), (-1, 1), (1, -1), (1, 1)]  
 
     for dr, dc in directions:
         new_row, new_col = row + dr, col + dc
         if 0 <= new_row < len(board) and 0 <= new_col < len(board[0]):
             target_piece = board[new_row][new_col]
-            if is_enemy and target_piece in enemy_pieces:  # Rakip taş tehdit ediliyorsa
+            if is_enemy and target_piece in enemy_pieces:  
                 threat_score += 0.5
             elif not is_enemy and target_piece.isupper() if board[row][col].islower() else target_piece.islower():
-                # Kendi taş korunuyorsa
+
                 threat_score += 0.25
 
     return threat_score
