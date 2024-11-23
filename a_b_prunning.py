@@ -200,16 +200,24 @@ def evaluate_board(board, player):
 def check_threats(board, row, col, enemy_pieces, is_enemy):
     threat_score = 0
 
-    directions = [(-1, 0), (1, 0), (0, -1), (0, 1), (-1, -1), (-1, 1), (1, -1), (1, 1)]  
-
+    directions = [(-1, 0), (1, 0), (0, -1), (0, 1), (-1, -1), (-1, 1), (1, -1), (1, 1)]
     for dr, dc in directions:
         new_row, new_col = row + dr, col + dc
         if 0 <= new_row < len(board) and 0 <= new_col < len(board[0]):
             target_piece = board[new_row][new_col]
-            if is_enemy and target_piece in enemy_pieces:  
+            if is_enemy and target_piece in enemy_pieces:
                 threat_score += 0.5
             elif not is_enemy and target_piece.isupper() if board[row][col].islower() else target_piece.islower():
+                threat_score += 0.25
 
+    knight_moves = [(-2, -1), (-1, -2), (-2, 1), (-1, 2), (2, -1), (1, -2), (2, 1), (1, 2)]
+    for dr, dc in knight_moves:
+        new_row, new_col = row + dr, col + dc
+        if 0 <= new_row < len(board) and 0 <= new_col < len(board[0]):
+            target_piece = board[new_row][new_col]
+            if is_enemy and target_piece in enemy_pieces:
+                threat_score += 0.5
+            elif not is_enemy and target_piece.isupper() if board[row][col].islower() else target_piece.islower():
                 threat_score += 0.25
 
     return threat_score
